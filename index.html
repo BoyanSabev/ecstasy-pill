@@ -1,325 +1,673 @@
-<html><head></head><body><div id="stage" style="width:100%;height:500px;position:relative;cursor:none;">
-  <canvas id="c" style="width: 2264px; height: 500px; display: block;" width="4528" height="1000"></canvas>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-let scene, camera, renderer, pill;
-let tRX=0, tRY=0, cRX=0, cRY=0, tick=0;
+<!DOCTYPE html>
+<html lang="de"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDMA Pille</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+    #stage { width:100vw; height:100vh; display:block; cursor:none; }
+    canvas { width:100%; height:100%; display:block; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="c" width="4600" height="1370" style="width: 2300px; height: 685px;"></canvas>
+  </div>
 
-function init(){
-  const canvas = document.getElementById('c');
-  const stage  = document.getElementById('stage');
-  scene = new THREE.Scene();
-  const W = stage.clientWidth, H = stage.clientHeight;
-  camera = new THREE.PerspectiveCamera(32, W/H, 0.1, 100);
-  camera.position.set(0, 2.2, 6.2);
-  camera.lookAt(0, 0, 0);
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    let scene, camera, renderer, pill;
+    let tRX=0, tRY=0, cRX=0, cRY=0, tick=0;
 
-  renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
-  renderer.setSize(W, H);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setClearColor(0x000000, 0);
+    function getPillScale(){
+      const w = window.innerWidth;
+      if(w < 480)  return 0.52;
+      if(w < 768)  return 0.70;
+      if(w < 1024) return 0.88;
+      return 1.0;
+    }
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const key = new THREE.DirectionalLight(0xffffff, 1.6);
-  key.position.set(3, 8, 6);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(0xfff0f5, 0.3);
-  fill.position.set(-5, 2, 2);
-  scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xffffff, 0.2);
-  rim.position.set(0, -3, -3);
-  scene.add(rim);
+    function init(){
+      const canvas = document.getElementById('c');
+      const stage  = document.getElementById('stage');
 
-  buildPill();
+      scene = new THREE.Scene();
 
-  stage.addEventListener('mousemove', e => {
-    const r = stage.getBoundingClientRect();
-    tRY = ((e.clientX - r.left) / r.width  - 0.5) * 2.2;
-    tRX = ((e.clientY - r.top)  / r.height - 0.5) * 1.5;
-  });
-  stage.addEventListener('mouseleave', () => { tRX=0; tRY=0; });
-  window.addEventListener('resize', () => {
-    const W=stage.clientWidth, H=stage.clientHeight;
-    camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H);
-  });
+      const W = window.innerWidth;
+      const H = window.innerHeight;
 
-  animate();
-}
+      camera = new THREE.PerspectiveCamera(32, W/H, 0.1, 100);
+      camera.position.set(0, 2.2, 6.2);
+      camera.lookAt(0, 0, 0);
 
-function buildPill(){
-  pill = new THREE.Group();
+      renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setClearColor(0x000000, 1);
 
-  const colTop  = 0x9e6e82;
-  const colSide = 0x8a5c70;
-  const colSeam = 0x5e3a4a;
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const key = new THREE.DirectionalLight(0xffffff, 1.6);
+      key.position.set(3, 8, 6); scene.add(key);
+      const fill = new THREE.DirectionalLight(0xfff0f5, 0.3);
+      fill.position.set(-5, 2, 2); scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffffff, 0.2);
+      rim.position.set(0, -3, -3); scene.add(rim);
 
-  const matTop  = new THREE.MeshStandardMaterial({ color: colTop,  roughness: 0.92, metalness: 0.0 });
-  const matSide = new THREE.MeshStandardMaterial({ color: colSide, roughness: 0.92, metalness: 0.0 });
-  const matSeam = new THREE.MeshStandardMaterial({ color: colSeam, roughness: 0.95, metalness: 0.0 });
+      buildPill();
 
-  const R = 2.0;
-  const H = 0.50;
-  const domeH = 0.30;
+      stage.addEventListener('mousemove', e => {
+        const r = stage.getBoundingClientRect();
+        tRY = ((e.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((e.clientY - r.top)  / r.height - 0.5) * 1.5;
+      });
+      stage.addEventListener('mouseleave', () => { tRX=0; tRY=0; });
 
-  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H*2, 128, 1, false), matSide);
-  pill.add(cyl);
+      // Touch support for mobile
+      stage.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const r = stage.getBoundingClientRect();
+        const t = e.touches[0];
+        tRY = ((t.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((t.clientY - r.top)  / r.height - 0.5) * 1.5;
+      }, {passive: false});
+      stage.addEventListener('touchend', () => { tRX=0; tRY=0; });
 
-  const pts = [];
-  for(let i=0; i<=48; i++){
-    const t = i/48;
-    const r = Math.sin(t * Math.PI/2) * R;
-    const y = Math.cos(t * Math.PI/2) * domeH;
-    pts.push(new THREE.Vector2(r, y));
-  }
-  const domeGeo = new THREE.LatheGeometry(pts, 128);
+      window.addEventListener('resize', () => {
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        camera.aspect = W/H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(W, H);
+        if(pill) pill.scale.setScalar(getPillScale());
+      });
 
-  const topCap = new THREE.Mesh(domeGeo, matTop);
-  topCap.position.y = H;
-  pill.add(topCap);
+      animate();
+    }
 
-  const botCap = new THREE.Mesh(domeGeo, matTop);
-  botCap.position.y = -H;
-  botCap.rotation.x = Math.PI;
-  pill.add(botCap);
+    function buildPill(){
+      pill = new THREE.Group();
 
-  const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.022, 8, 128), matSeam);
-  seam.rotation.x = Math.PI/2;
-  pill.add(seam);
+      const colTop  = 0x9e6e82;
+      const colSide = 0x8a5c70;
+      const colSeam = 0x5e3a4a;
 
-  scene.add(pill);
-}
+      const matTop  = new THREE.MeshStandardMaterial({ color:colTop,  roughness:0.92, metalness:0.0 });
+      const matSide = new THREE.MeshStandardMaterial({ color:colSide, roughness:0.92, metalness:0.0 });
+      const matSeam = new THREE.MeshStandardMaterial({ color:colSeam, roughness:0.95, metalness:0.0 });
 
-function animate(){
-  requestAnimationFrame(animate);
-  tick += 0.011;
-  cRX += (tRX - cRX) * 0.065;
-  cRY += (tRY - cRY) * 0.065;
-  if(pill){
-    pill.rotation.x = cRX;
-    pill.rotation.y = cRY;
-    pill.position.y = Math.sin(tick) * 0.07;
-  }
-  renderer.render(scene, camera);
-}
+      const R = 2.0, H = 0.50, domeH = 0.30;
 
-init();
-</script>
+      pill.add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, H*2, 128, 1, false), matSide));
+
+      const pts = [];
+      for(let i=0; i<=48; i++){
+        const t = i/48;
+        pts.push(new THREE.Vector2(Math.sin(t*Math.PI/2)*R, Math.cos(t*Math.PI/2)*domeH));
+      }
+      const domeGeo = new THREE.LatheGeometry(pts, 128);
+
+      const topCap = new THREE.Mesh(domeGeo, matTop);
+      topCap.position.y = H; pill.add(topCap);
+
+      const botCap = new THREE.Mesh(domeGeo, matTop);
+      botCap.position.y = -H; botCap.rotation.x = Math.PI; pill.add(botCap);
+
+      const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.022, 8, 128), matSeam);
+      seam.rotation.x = Math.PI/2; pill.add(seam);
+
+      pill.scale.setScalar(getPillScale());
+      scene.add(pill);
+    }
+
+    function animate(){
+      requestAnimationFrame(animate);
+      tick += 0.011;
+      cRX += (tRX - cRX) * 0.065;
+      cRY += (tRY - cRY) * 0.065;
+      if(pill){
+        pill.rotation.x = cRX;
+        pill.rotation.y = cRY;
+        pill.position.y = Math.sin(tick) * 0.07;
+      }
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+
+
 </body></html>
-<head></head>
-<body><div id="stage" style="width:100%;height:500px;position:relative;cursor:none;">
-  <canvas id="c" style="width: 2264px; height: 500px; display: block;" width="4528" height="1000"></canvas>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-let scene, camera, renderer, pill;
-let tRX=0, tRY=0, cRX=0, cRY=0, tick=0;
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDMA Pille</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+    #stage { width:100vw; height:100vh; display:block; cursor:none; }
+    canvas { width:100%; height:100%; display:block; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="c" width="4600" height="1370" style="width: 2300px; height: 685px;"></canvas>
+  </div>
 
-function init(){
-  const canvas = document.getElementById('c');
-  const stage  = document.getElementById('stage');
-  scene = new THREE.Scene();
-  const W = stage.clientWidth, H = stage.clientHeight;
-  camera = new THREE.PerspectiveCamera(32, W/H, 0.1, 100);
-  camera.position.set(0, 2.2, 6.2);
-  camera.lookAt(0, 0, 0);
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    let scene, camera, renderer, pill;
+    let tRX=0, tRY=0, cRX=0, cRY=0, tick=0;
 
-  renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
-  renderer.setSize(W, H);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setClearColor(0x000000, 0);
+    function getPillScale(){
+      const w = window.innerWidth;
+      if(w < 480)  return 0.52;
+      if(w < 768)  return 0.70;
+      if(w < 1024) return 0.88;
+      return 1.0;
+    }
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const key = new THREE.DirectionalLight(0xffffff, 1.6);
-  key.position.set(3, 8, 6);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(0xfff0f5, 0.3);
-  fill.position.set(-5, 2, 2);
-  scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xffffff, 0.2);
-  rim.position.set(0, -3, -3);
-  scene.add(rim);
+    function init(){
+      const canvas = document.getElementById('c');
+      const stage  = document.getElementById('stage');
 
-  buildPill();
+      scene = new THREE.Scene();
 
-  stage.addEventListener('mousemove', e => {
-    const r = stage.getBoundingClientRect();
-    tRY = ((e.clientX - r.left) / r.width  - 0.5) * 2.2;
-    tRX = ((e.clientY - r.top)  / r.height - 0.5) * 1.5;
-  });
-  stage.addEventListener('mouseleave', () => { tRX=0; tRY=0; });
-  window.addEventListener('resize', () => {
-    const W=stage.clientWidth, H=stage.clientHeight;
-    camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H);
-  });
+      const W = window.innerWidth;
+      const H = window.innerHeight;
 
-  animate();
-}
+      camera = new THREE.PerspectiveCamera(32, W/H, 0.1, 100);
+      camera.position.set(0, 2.2, 6.2);
+      camera.lookAt(0, 0, 0);
 
-function buildPill(){
-  pill = new THREE.Group();
+      renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setClearColor(0x000000, 1);
 
-  const colTop  = 0x9e6e82;
-  const colSide = 0x8a5c70;
-  const colSeam = 0x5e3a4a;
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const key = new THREE.DirectionalLight(0xffffff, 1.6);
+      key.position.set(3, 8, 6); scene.add(key);
+      const fill = new THREE.DirectionalLight(0xfff0f5, 0.3);
+      fill.position.set(-5, 2, 2); scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffffff, 0.2);
+      rim.position.set(0, -3, -3); scene.add(rim);
 
-  const matTop  = new THREE.MeshStandardMaterial({ color: colTop,  roughness: 0.92, metalness: 0.0 });
-  const matSide = new THREE.MeshStandardMaterial({ color: colSide, roughness: 0.92, metalness: 0.0 });
-  const matSeam = new THREE.MeshStandardMaterial({ color: colSeam, roughness: 0.95, metalness: 0.0 });
+      buildPill();
 
-  const R = 2.0;
-  const H = 0.50;
-  const domeH = 0.30;
+      stage.addEventListener('mousemove', e => {
+        const r = stage.getBoundingClientRect();
+        tRY = ((e.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((e.clientY - r.top)  / r.height - 0.5) * 1.5;
+      });
+      stage.addEventListener('mouseleave', () => { tRX=0; tRY=0; });
 
-  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H*2, 128, 1, false), matSide);
-  pill.add(cyl);
+      // Touch support for mobile
+      stage.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const r = stage.getBoundingClientRect();
+        const t = e.touches[0];
+        tRY = ((t.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((t.clientY - r.top)  / r.height - 0.5) * 1.5;
+      }, {passive: false});
+      stage.addEventListener('touchend', () => { tRX=0; tRY=0; });
 
-  const pts = [];
-  for(let i=0; i<=48; i++){
-    const t = i/48;
-    const r = Math.sin(t * Math.PI/2) * R;
-    const y = Math.cos(t * Math.PI/2) * domeH;
-    pts.push(new THREE.Vector2(r, y));
-  }
-  const domeGeo = new THREE.LatheGeometry(pts, 128);
+      window.addEventListener('resize', () => {
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        camera.aspect = W/H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(W, H);
+        if(pill) pill.scale.setScalar(getPillScale());
+      });
 
-  const topCap = new THREE.Mesh(domeGeo, matTop);
-  topCap.position.y = H;
-  pill.add(topCap);
+      animate();
+    }
 
-  const botCap = new THREE.Mesh(domeGeo, matTop);
-  botCap.position.y = -H;
-  botCap.rotation.x = Math.PI;
-  pill.add(botCap);
+    function buildPill(){
+      pill = new THREE.Group();
 
-  const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.022, 8, 128), matSeam);
-  seam.rotation.x = Math.PI/2;
-  pill.add(seam);
+      const colTop  = 0x9e6e82;
+      const colSide = 0x8a5c70;
+      const colSeam = 0x5e3a4a;
 
-  scene.add(pill);
-}
+      const matTop  = new THREE.MeshStandardMaterial({ color:colTop,  roughness:0.92, metalness:0.0 });
+      const matSide = new THREE.MeshStandardMaterial({ color:colSide, roughness:0.92, metalness:0.0 });
+      const matSeam = new THREE.MeshStandardMaterial({ color:colSeam, roughness:0.95, metalness:0.0 });
 
-function animate(){
-  requestAnimationFrame(animate);
-  tick += 0.011;
-  cRX += (tRX - cRX) * 0.065;
-  cRY += (tRY - cRY) * 0.065;
-  if(pill){
-    pill.rotation.x = cRX;
-    pill.rotation.y = cRY;
-    pill.position.y = Math.sin(tick) * 0.07;
-  }
-  renderer.render(scene, camera);
-}
+      const R = 2.0, H = 0.50, domeH = 0.30;
 
-init();
-</script>
+      pill.add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, H*2, 128, 1, false), matSide));
+
+      const pts = [];
+      for(let i=0; i<=48; i++){
+        const t = i/48;
+        pts.push(new THREE.Vector2(Math.sin(t*Math.PI/2)*R, Math.cos(t*Math.PI/2)*domeH));
+      }
+      const domeGeo = new THREE.LatheGeometry(pts, 128);
+
+      const topCap = new THREE.Mesh(domeGeo, matTop);
+      topCap.position.y = H; pill.add(topCap);
+
+      const botCap = new THREE.Mesh(domeGeo, matTop);
+      botCap.position.y = -H; botCap.rotation.x = Math.PI; pill.add(botCap);
+
+      const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.022, 8, 128), matSeam);
+      seam.rotation.x = Math.PI/2; pill.add(seam);
+
+      pill.scale.setScalar(getPillScale());
+      scene.add(pill);
+    }
+
+    function animate(){
+      requestAnimationFrame(animate);
+      tick += 0.011;
+      cRX += (tRX - cRX) * 0.065;
+      cRY += (tRY - cRY) * 0.065;
+      if(pill){
+        pill.rotation.x = cRX;
+        pill.rotation.y = cRY;
+        pill.position.y = Math.sin(tick) * 0.07;
+      }
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+
+
 </body>
-<html><head></head><body><div id="stage" style="width:100%;height:500px;position:relative;cursor:none;">
-  <canvas id="c" style="width: 2264px; height: 500px; display: block;" width="4528" height="1000"></canvas>
-</div>
+<div id="stage">
+    <canvas id="c" width="4600" height="1370" style="width: 2300px; height: 685px;"></canvas>
+  </div>
+<canvas id="c" width="4600" height="1370" style="width: 2300px; height: 685px;"></canvas>
+<div id="stage">
+    <canvas id="c" width="4600" height="1370" style="width: 2300px; height: 685px;"></canvas>
+  </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-let scene, camera, renderer, pill;
-let tRX=0, tRY=0, cRX=0, cRY=0, tick=0;
+    let scene, camera, renderer, pill;
+    let tRX=0, tRY=0, cRX=0, cRY=0, tick=0;
 
-function init(){
-  const canvas = document.getElementById('c');
-  const stage  = document.getElementById('stage');
-  scene = new THREE.Scene();
-  const W = stage.clientWidth, H = stage.clientHeight;
-  camera = new THREE.PerspectiveCamera(32, W/H, 0.1, 100);
-  camera.position.set(0, 2.2, 6.2);
-  camera.lookAt(0, 0, 0);
+    function getPillScale(){
+      const w = window.innerWidth;
+      if(w < 480)  return 0.52;
+      if(w < 768)  return 0.70;
+      if(w < 1024) return 0.88;
+      return 1.0;
+    }
 
-  renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
-  renderer.setSize(W, H);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setClearColor(0x000000, 0);
+    function init(){
+      const canvas = document.getElementById('c');
+      const stage  = document.getElementById('stage');
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const key = new THREE.DirectionalLight(0xffffff, 1.6);
-  key.position.set(3, 8, 6);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(0xfff0f5, 0.3);
-  fill.position.set(-5, 2, 2);
-  scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xffffff, 0.2);
-  rim.position.set(0, -3, -3);
-  scene.add(rim);
+      scene = new THREE.Scene();
 
-  buildPill();
+      const W = window.innerWidth;
+      const H = window.innerHeight;
 
-  stage.addEventListener('mousemove', e => {
-    const r = stage.getBoundingClientRect();
-    tRY = ((e.clientX - r.left) / r.width  - 0.5) * 2.2;
-    tRX = ((e.clientY - r.top)  / r.height - 0.5) * 1.5;
-  });
-  stage.addEventListener('mouseleave', () => { tRX=0; tRY=0; });
-  window.addEventListener('resize', () => {
-    const W=stage.clientWidth, H=stage.clientHeight;
-    camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H);
-  });
+      camera = new THREE.PerspectiveCamera(32, W/H, 0.1, 100);
+      camera.position.set(0, 2.2, 6.2);
+      camera.lookAt(0, 0, 0);
 
-  animate();
-}
+      renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setClearColor(0x000000, 1);
 
-function buildPill(){
-  pill = new THREE.Group();
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const key = new THREE.DirectionalLight(0xffffff, 1.6);
+      key.position.set(3, 8, 6); scene.add(key);
+      const fill = new THREE.DirectionalLight(0xfff0f5, 0.3);
+      fill.position.set(-5, 2, 2); scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffffff, 0.2);
+      rim.position.set(0, -3, -3); scene.add(rim);
 
-  const colTop  = 0x9e6e82;
-  const colSide = 0x8a5c70;
-  const colSeam = 0x5e3a4a;
+      buildPill();
 
-  const matTop  = new THREE.MeshStandardMaterial({ color: colTop,  roughness: 0.92, metalness: 0.0 });
-  const matSide = new THREE.MeshStandardMaterial({ color: colSide, roughness: 0.92, metalness: 0.0 });
-  const matSeam = new THREE.MeshStandardMaterial({ color: colSeam, roughness: 0.95, metalness: 0.0 });
+      stage.addEventListener('mousemove', e => {
+        const r = stage.getBoundingClientRect();
+        tRY = ((e.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((e.clientY - r.top)  / r.height - 0.5) * 1.5;
+      });
+      stage.addEventListener('mouseleave', () => { tRX=0; tRY=0; });
 
-  const R = 2.0;
-  const H = 0.50;
-  const domeH = 0.30;
+      // Touch support for mobile
+      stage.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const r = stage.getBoundingClientRect();
+        const t = e.touches[0];
+        tRY = ((t.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((t.clientY - r.top)  / r.height - 0.5) * 1.5;
+      }, {passive: false});
+      stage.addEventListener('touchend', () => { tRX=0; tRY=0; });
 
-  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H*2, 128, 1, false), matSide);
-  pill.add(cyl);
+      window.addEventListener('resize', () => {
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        camera.aspect = W/H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(W, H);
+        if(pill) pill.scale.setScalar(getPillScale());
+      });
 
-  const pts = [];
-  for(let i=0; i<=48; i++){
-    const t = i/48;
-    const r = Math.sin(t * Math.PI/2) * R;
-    const y = Math.cos(t * Math.PI/2) * domeH;
-    pts.push(new THREE.Vector2(r, y));
-  }
-  const domeGeo = new THREE.LatheGeometry(pts, 128);
+      animate();
+    }
 
-  const topCap = new THREE.Mesh(domeGeo, matTop);
-  topCap.position.y = H;
-  pill.add(topCap);
+    function buildPill(){
+      pill = new THREE.Group();
 
-  const botCap = new THREE.Mesh(domeGeo, matTop);
-  botCap.position.y = -H;
-  botCap.rotation.x = Math.PI;
-  pill.add(botCap);
+      const colTop  = 0x9e6e82;
+      const colSide = 0x8a5c70;
+      const colSeam = 0x5e3a4a;
 
-  const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.022, 8, 128), matSeam);
-  seam.rotation.x = Math.PI/2;
-  pill.add(seam);
+      const matTop  = new THREE.MeshStandardMaterial({ color:colTop,  roughness:0.92, metalness:0.0 });
+      const matSide = new THREE.MeshStandardMaterial({ color:colSide, roughness:0.92, metalness:0.0 });
+      const matSeam = new THREE.MeshStandardMaterial({ color:colSeam, roughness:0.95, metalness:0.0 });
 
-  scene.add(pill);
-}
+      const R = 2.0, H = 0.50, domeH = 0.30;
 
-function animate(){
-  requestAnimationFrame(animate);
-  tick += 0.011;
-  cRX += (tRX - cRX) * 0.065;
-  cRY += (tRY - cRY) * 0.065;
-  if(pill){
-    pill.rotation.x = cRX;
-    pill.rotation.y = cRY;
-    pill.position.y = Math.sin(tick) * 0.07;
-  }
-  renderer.render(scene, camera);
-}
+      pill.add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, H*2, 128, 1, false), matSide));
 
-init();
-</script>
+      const pts = [];
+      for(let i=0; i<=48; i++){
+        const t = i/48;
+        pts.push(new THREE.Vector2(Math.sin(t*Math.PI/2)*R, Math.cos(t*Math.PI/2)*domeH));
+      }
+      const domeGeo = new THREE.LatheGeometry(pts, 128);
+
+      const topCap = new THREE.Mesh(domeGeo, matTop);
+      topCap.position.y = H; pill.add(topCap);
+
+      const botCap = new THREE.Mesh(domeGeo, matTop);
+      botCap.position.y = -H; botCap.rotation.x = Math.PI; pill.add(botCap);
+
+      const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.022, 8, 128), matSeam);
+      seam.rotation.x = Math.PI/2; pill.add(seam);
+
+      pill.scale.setScalar(getPillScale());
+      scene.add(pill);
+    }
+
+    function animate(){
+      requestAnimationFrame(animate);
+      tick += 0.011;
+      cRX += (tRX - cRX) * 0.065;
+      cRY += (tRY - cRY) * 0.065;
+      if(pill){
+        pill.rotation.x = cRX;
+        pill.rotation.y = cRY;
+        pill.position.y = Math.sin(tick) * 0.07;
+      }
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+<body>
+  <div id="stage">
+    <canvas id="c" width="4600" height="1370" style="width: 2300px; height: 685px;"></canvas>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    let scene, camera, renderer, pill;
+    let tRX=0, tRY=0, cRX=0, cRY=0, tick=0;
+
+    function getPillScale(){
+      const w = window.innerWidth;
+      if(w < 480)  return 0.52;
+      if(w < 768)  return 0.70;
+      if(w < 1024) return 0.88;
+      return 1.0;
+    }
+
+    function init(){
+      const canvas = document.getElementById('c');
+      const stage  = document.getElementById('stage');
+
+      scene = new THREE.Scene();
+
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+
+      camera = new THREE.PerspectiveCamera(32, W/H, 0.1, 100);
+      camera.position.set(0, 2.2, 6.2);
+      camera.lookAt(0, 0, 0);
+
+      renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setClearColor(0x000000, 1);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const key = new THREE.DirectionalLight(0xffffff, 1.6);
+      key.position.set(3, 8, 6); scene.add(key);
+      const fill = new THREE.DirectionalLight(0xfff0f5, 0.3);
+      fill.position.set(-5, 2, 2); scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffffff, 0.2);
+      rim.position.set(0, -3, -3); scene.add(rim);
+
+      buildPill();
+
+      stage.addEventListener('mousemove', e => {
+        const r = stage.getBoundingClientRect();
+        tRY = ((e.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((e.clientY - r.top)  / r.height - 0.5) * 1.5;
+      });
+      stage.addEventListener('mouseleave', () => { tRX=0; tRY=0; });
+
+      // Touch support for mobile
+      stage.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const r = stage.getBoundingClientRect();
+        const t = e.touches[0];
+        tRY = ((t.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((t.clientY - r.top)  / r.height - 0.5) * 1.5;
+      }, {passive: false});
+      stage.addEventListener('touchend', () => { tRX=0; tRY=0; });
+
+      window.addEventListener('resize', () => {
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        camera.aspect = W/H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(W, H);
+        if(pill) pill.scale.setScalar(getPillScale());
+      });
+
+      animate();
+    }
+
+    function buildPill(){
+      pill = new THREE.Group();
+
+      const colTop  = 0x9e6e82;
+      const colSide = 0x8a5c70;
+      const colSeam = 0x5e3a4a;
+
+      const matTop  = new THREE.MeshStandardMaterial({ color:colTop,  roughness:0.92, metalness:0.0 });
+      const matSide = new THREE.MeshStandardMaterial({ color:colSide, roughness:0.92, metalness:0.0 });
+      const matSeam = new THREE.MeshStandardMaterial({ color:colSeam, roughness:0.95, metalness:0.0 });
+
+      const R = 2.0, H = 0.50, domeH = 0.30;
+
+      pill.add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, H*2, 128, 1, false), matSide));
+
+      const pts = [];
+      for(let i=0; i<=48; i++){
+        const t = i/48;
+        pts.push(new THREE.Vector2(Math.sin(t*Math.PI/2)*R, Math.cos(t*Math.PI/2)*domeH));
+      }
+      const domeGeo = new THREE.LatheGeometry(pts, 128);
+
+      const topCap = new THREE.Mesh(domeGeo, matTop);
+      topCap.position.y = H; pill.add(topCap);
+
+      const botCap = new THREE.Mesh(domeGeo, matTop);
+      botCap.position.y = -H; botCap.rotation.x = Math.PI; pill.add(botCap);
+
+      const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.022, 8, 128), matSeam);
+      seam.rotation.x = Math.PI/2; pill.add(seam);
+
+      pill.scale.setScalar(getPillScale());
+      scene.add(pill);
+    }
+
+    function animate(){
+      requestAnimationFrame(animate);
+      tick += 0.011;
+      cRX += (tRX - cRX) * 0.065;
+      cRY += (tRY - cRY) * 0.065;
+      if(pill){
+        pill.rotation.x = cRX;
+        pill.rotation.y = cRY;
+        pill.position.y = Math.sin(tick) * 0.07;
+      }
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+
+
+</body>
+<html lang="de"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDMA Pille</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+    #stage { width:100vw; height:100vh; display:block; cursor:none; }
+    canvas { width:100%; height:100%; display:block; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="c" width="4600" height="1370" style="width: 2300px; height: 685px;"></canvas>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    let scene, camera, renderer, pill;
+    let tRX=0, tRY=0, cRX=0, cRY=0, tick=0;
+
+    function getPillScale(){
+      const w = window.innerWidth;
+      if(w < 480)  return 0.52;
+      if(w < 768)  return 0.70;
+      if(w < 1024) return 0.88;
+      return 1.0;
+    }
+
+    function init(){
+      const canvas = document.getElementById('c');
+      const stage  = document.getElementById('stage');
+
+      scene = new THREE.Scene();
+
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+
+      camera = new THREE.PerspectiveCamera(32, W/H, 0.1, 100);
+      camera.position.set(0, 2.2, 6.2);
+      camera.lookAt(0, 0, 0);
+
+      renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setClearColor(0x000000, 1);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const key = new THREE.DirectionalLight(0xffffff, 1.6);
+      key.position.set(3, 8, 6); scene.add(key);
+      const fill = new THREE.DirectionalLight(0xfff0f5, 0.3);
+      fill.position.set(-5, 2, 2); scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffffff, 0.2);
+      rim.position.set(0, -3, -3); scene.add(rim);
+
+      buildPill();
+
+      stage.addEventListener('mousemove', e => {
+        const r = stage.getBoundingClientRect();
+        tRY = ((e.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((e.clientY - r.top)  / r.height - 0.5) * 1.5;
+      });
+      stage.addEventListener('mouseleave', () => { tRX=0; tRY=0; });
+
+      // Touch support for mobile
+      stage.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const r = stage.getBoundingClientRect();
+        const t = e.touches[0];
+        tRY = ((t.clientX - r.left) / r.width  - 0.5) * 2.2;
+        tRX = ((t.clientY - r.top)  / r.height - 0.5) * 1.5;
+      }, {passive: false});
+      stage.addEventListener('touchend', () => { tRX=0; tRY=0; });
+
+      window.addEventListener('resize', () => {
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        camera.aspect = W/H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(W, H);
+        if(pill) pill.scale.setScalar(getPillScale());
+      });
+
+      animate();
+    }
+
+    function buildPill(){
+      pill = new THREE.Group();
+
+      const colTop  = 0x9e6e82;
+      const colSide = 0x8a5c70;
+      const colSeam = 0x5e3a4a;
+
+      const matTop  = new THREE.MeshStandardMaterial({ color:colTop,  roughness:0.92, metalness:0.0 });
+      const matSide = new THREE.MeshStandardMaterial({ color:colSide, roughness:0.92, metalness:0.0 });
+      const matSeam = new THREE.MeshStandardMaterial({ color:colSeam, roughness:0.95, metalness:0.0 });
+
+      const R = 2.0, H = 0.50, domeH = 0.30;
+
+      pill.add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, H*2, 128, 1, false), matSide));
+
+      const pts = [];
+      for(let i=0; i<=48; i++){
+        const t = i/48;
+        pts.push(new THREE.Vector2(Math.sin(t*Math.PI/2)*R, Math.cos(t*Math.PI/2)*domeH));
+      }
+      const domeGeo = new THREE.LatheGeometry(pts, 128);
+
+      const topCap = new THREE.Mesh(domeGeo, matTop);
+      topCap.position.y = H; pill.add(topCap);
+
+      const botCap = new THREE.Mesh(domeGeo, matTop);
+      botCap.position.y = -H; botCap.rotation.x = Math.PI; pill.add(botCap);
+
+      const seam = new THREE.Mesh(new THREE.TorusGeometry(R, 0.022, 8, 128), matSeam);
+      seam.rotation.x = Math.PI/2; pill.add(seam);
+
+      pill.scale.setScalar(getPillScale());
+      scene.add(pill);
+    }
+
+    function animate(){
+      requestAnimationFrame(animate);
+      tick += 0.011;
+      cRX += (tRX - cRX) * 0.065;
+      cRY += (tRY - cRY) * 0.065;
+      if(pill){
+        pill.rotation.x = cRX;
+        pill.rotation.y = cRY;
+        pill.position.y = Math.sin(tick) * 0.07;
+      }
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+
+
 </body></html>
